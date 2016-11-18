@@ -1,0 +1,22 @@
+{
+    "name": "jinnguyen/puja-entity",
+    "description": "Puja-Entity is an abstract layer to manage a entity object and easy to get the Docblock document",
+    "type": "library",
+    "license": "Apache License 2.0",
+    "keywords": ["Puja", "Entity"],
+    "authors": [
+        {
+            "name": "Jin Nguyen",
+            "email": "w2ajax@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=5.3"
+    },
+    "autoload": {
+        "psr-4": {
+          "Puja\\Entity\\": "src/"
+        }
+    }
+}
