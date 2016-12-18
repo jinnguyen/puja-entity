@@ -26,6 +26,10 @@ use Puja\Entity\Entity;
  * @method setCreatedAt(string $attr)
  * @method hasCreatedAt()
  * @method unsetCreatedAt()
+ * @method string getCreatedAt()
+ * @method setCreatedAt(string $attr)
+ * @method hasCreatedAt()
+ * @method unsetCreatedAt()
  * @method Category getCategory()
  * @method setCategory(Category $attr)
  * @method hasCategory()
@@ -37,7 +41,11 @@ class ContentEntity extends Entity
         'id' => Entity::DATATYPE_INT,
         'name' => Entity::DATATYPE_STRING,
         'created_at' => Entity::DATATYPE_STRING,
+        'price' => Entity::DATATYPE_INT,
         'category' => 'Category',
+    );
+    protected $defaults = array(
+        'price' => 5,
     );
 }
 
@@ -57,6 +65,7 @@ $content = new ContentEntity(array(
 echo $content->getId(); // 1
 echo $content->getName(); // Content 1
 echo $content->getCreatedAt(); // 2016-11-18 00:00:00
+echo $content->getId(); // 5
 
 $category = $content->getCategory();
 echo $category->name; // Category 1

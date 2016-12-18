@@ -14,25 +14,31 @@ class Entity
     const DATATYPE_MIXED = 'mixed';
 
     protected $attributes = array();
+    protected $defaults = array();
 
     private $data = array();
     private $checkDataType;
-    private $allowActions = array('get', 'set', 'unset', 'has');
+    private $attributeActionMapping = array();
 
     public function __construct(array $data, $checkDataType = true)
     {
-        $this->data = array_fill_keys(array_keys($this->attributes), null);
         $this->checkDataType = $checkDataType;
         if (empty($data)) {
             return;
         }
 
         foreach ($this->attributes as $attr => $dataType) {
+            $this->validateAttributeKeyName($attr);
             $value = null;
             if (array_key_exists($attr, $data)) {
                 $value = $data[$attr];
+            } elseif (array_key_exists($attr, $this->defaults)) {
+                $value = $this->defaults[$attr];
             }
-            $this->setAttr($attr, $value);
+
+            $this->addAttributeActionMapping($attr);
+
+            $this->data[$attr] = $this->convertDataType($attr, $value);
         }
     }
 
@@ -48,18 +54,15 @@ class Entity
         }
     }
 
+    public function unsetAttr($key)
+    {
+        $this->data[$key] = empty($this->defaults[$key]) ? null : $this->defaults[$key];
+    }
+
     public function __call($name, $arguments)
     {
-        $underScoreName = $this->convertCamelCaseToUnderScore($name);
-        $explode = explode('_', $underScoreName);
+        list ($action, $attr) = $this->attributeActionMapping[$name];
 
-        $action = $explode[0];
-        if (!in_array($action, $this->allowActions)) {
-            throw new Exception('Invalid method action [' . $action . ']. Only get, set, unset and has are allowed for class ' . get_class($this) . '!');
-        }
-
-        unset($explode[0]);
-        $attr = strtolower(implode('_', $explode));
         switch ($action) {
             case 'get':
                 return $this->getAttr($attr);
@@ -70,7 +73,7 @@ class Entity
                 $this->setAttr($attr, $arguments[0]);
                 break;
             case 'unset':
-                unset($this->data[$attr]);
+                $this->unsetAttr($attr);
                 break;
             case 'has':
                 return $this->hasAttr($attr);
@@ -92,6 +95,22 @@ class Entity
     public function __toArray()
     {
         return $this->data;
+    }
+
+    public function getDocblock()
+    {
+        $code = '/**' . PHP_EOL;
+        $code .= '* This comment (docblock) is copied from ' . get_class($this) . '->getDocblock(); you should do it each time you change the ' . get_class($this) . '->attributes' . PHP_EOL;
+        foreach ($this->attributes as $attr => $dataType)
+        {
+            $func = $this->getFuncName($attr);
+            $code .= '* @method ' . $dataType . ' get' . $func . '()' . PHP_EOL;
+            $code .= '* @method set' . $func . '(' . $dataType . ' $' . lcfirst($func) . ')' . PHP_EOL;
+            $code .= '* @method has' . $func . '()' . PHP_EOL;
+            $code .= '* @method unset' . $func . '() // set value to ' . get_class($this) .'::defaults[' . $attr . '] or null' . PHP_EOL;
+        }
+        $code .= '*/';
+        return $code;
     }
 
     protected function convertDataType($key, $value)
@@ -131,50 +150,55 @@ class Entity
                     throw new Exception($key . ' is not a resource');
                 }
                 break;
+            case self::DATATYPE_MIXED:
+                break;
             default:
-                // if empty, dont do anything
-                if ($dataType) { // mean set $dataType is a class name
-                    if (!class_exists($dataType)) {
-                        throw new Exception('Datatype: ' . $dataType . ' is not existed.');
-                    }
-
-                    if (!($value instanceof $dataType)) {
-                        throw new Exception(get_class($this) . '->attributes['. $key . '] must be a instance of ' . $dataType . ', given ' . gettype($value));
-                    }
+                if (empty($dataType)) {
+                    break;
                 }
+
+                if (!class_exists($dataType)) {
+                    throw new Exception('Datatype: ' . $dataType . ' is not existed.');
+                }
+
+                if (!($value instanceof $dataType)) {
+                    throw new Exception(get_class($this) . '->attributes['. $key . '] must be a instance of ' . $dataType . ', given ' . gettype($value));
+                }
+                break;
         }
         return $value;
     }
 
-    protected function convertCamelCaseToUnderScore($string)
+    protected function addAttributeActionMapping($attr)
     {
-        $pattern = array(
-            '#(?<=(?:\p{Lu}))(\p{Lu}\p{Ll})#',
-            '#(?<=(?:\p{Ll}|\p{Nd}))(\p{Lu})#'
-        );
-        $replacement = array(
-            '_' . '\1',
-            '_' . '\1'
-        );
-
-        return preg_replace($pattern, $replacement, $string);
+        $func = $this->getFuncName($attr);
+        $this->attributeActionMapping['get' . $func] = array('get', $attr);
+        $this->attributeActionMapping['set' . $func] = array('set', $attr);
+        $this->attributeActionMapping['unset' . $func] = array('unset', $attr);
+        $this->attributeActionMapping['has' . $func] = array('has', $attr);
     }
 
-    public function getDocblock()
+    protected function getFuncName($str)
     {
-        $code = '/**' . PHP_EOL;
-        $code .= '* This comment (docblock) is copied from ' . get_class($this) . '->getDocblock(); you should do it each time you change the ' . get_class($this) . '->attributes' . PHP_EOL;
-        foreach ($this->attributes as $attr => $dataType)
-        {
-            $attr = str_replace('_', ' ', $attr);
-            $attr = ucwords($attr);
-            $attr = str_replace(' ', '', $attr);
-            $code .= '* @method ' . $dataType . ' get' . $attr . '()' . PHP_EOL;
-            $code .= '* @method set' . $attr . '(' . $dataType . ' $attr)' . PHP_EOL;
-            $code .= '* @method has' . $attr . '()' . PHP_EOL;
-            $code .= '* @method unset' . $attr . '()' . PHP_EOL;
+        $str = str_replace('_', ' ', $str);
+        $str = ucwords($str);
+        return str_replace(' ', '', $str);
+    }
+
+    protected function validateAttributeKeyName($key)
+    {
+        if (substr($key, 0, 1) == '_') {
+            throw new Exception('Puja\\Entity::attributes key cannot start with "_" (' . $key . ')');
         }
-        $code .= '*/';
-        return $code;
+
+        if (substr($key, -1) == '_') {
+            throw new Exception('Puja\\Entity::attributes key cannot end with "_" (' . $key . ')');
+        }
+
+        if (strpos($key, '__')) {
+            throw new Exception('Puja\\Entity::attributes key cannot include "__" (' . $key . ')');
+        }
     }
+
+
 }

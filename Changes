@@ -1,0 +1,9 @@
+v1.3.1
+- Fix bug with attributes key is camelcase name
+- Add feature that allow user set default value for attributes
+- Update function unset -> set to default value
+- Improve performance when user call function set/get/unset/has
+- Validate attribute key name
+
+v1.0.0
+Launched v1.0.0
